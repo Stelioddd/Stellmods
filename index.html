@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>STELLMODS SHOPPING</title>
+    
+    <!-- Firebase -->
+    <script type="module" src="https://www.gstatic.com/firebasejs/10.7.2/firebase-app.js"></script>
+    <script type="module" src="https://www.gstatic.com/firebasejs/10.7.2/firebase-auth.js"></script>
+    <script type="module" src="https://www.gstatic.com/firebasejs/10.7.2/firebase-firestore.js"></script>
+    
+    <style>
+        body {
+                  font-family: Arial, sans-serif; 
+                  text-align: center; 
+                  background: #181818;
+                  padding: 20px; 
+                  color: white; 
+      }
+        .arquivo { 
+                  background: white; 
+                  padding: 15px; 
+                  margin: 10px auto; 
+                  width: 90%; 
+                  max-width: 400px; 
+                  box-shadow: 0px 0px 10px rgba(0,0,0,0.1); 
+                  border-radius: 5px; 
+                  color: black; 
+      }
+        .arquivo a {
+                  display: block; 
+                  margin-top: 10px; 
+                  color: blue; 
+                  text-decoration: none;
+      }
+        h1 {
+                  color: gold;
+     }
+        h2 {   
+                  color: #CE0709;
+     }
+        h3 { 
+                  color: #CE0709;
+     }
+        #login-form { 
+                  display: block; 
+                  margin-bottom: 20px;
+     }
+        .hidden { 
+                 display: none; 
+     }
+        button { 
+                 padding: 10px 15px; 
+                 background: gold;
+                 border: none; 
+                 cursor: pointer; 
+                 margin: 5px;
+                 border-radius: 3px;
+    }
+        button:hover {
+                 background: #ffcc00;
+    }
+        input  {
+                  color: white;
+                  background: #353535;
+                  margin: 0px;
+                  padding: 7px 25px;
+                  border-radius: 20px;
+}
+    </style>
+</head>
+<body>
+
+    <h1>STELLMODS</h1>
+    <h3>SHOPPING</h3>
+    
+    <!-- Login Form -->
+    <div id="login-section">
+        <h2>Login</h2>
+        <form id="login-form">
+            <input type="email" id="email" placeholder="Email" required><br><br>
+            <input type="password" id="password" placeholder="Senha" required><br><br>
+            <button type="submit">Login</button>
+            <button type="button" id="google-login-btn">Login com Google</button>
+        </form>
+        <button id="logout-btn" class="hidden">Sair</button>
+    </div>
+
+    <!-- Área de Upload (Visível apenas para usuário logado) -->
+    <div id="upload-section" class="hidden">
+        <h2>Enviar Arquivo</h2>
+        <input type="text" id="nome" placeholder="Nome do Arquivo"><br><br>
+        <input type="text" id="descricao" placeholder="Descrição"><br><br>
+        <input type="number" id="preco" placeholder="Preço (MT)"><br><br>
+        <button id="upload-btn">Enviar</button>
+    </div>
+
+    <!-- Lista de Arquivos -->
+    <div id="arquivos-lista"></div>
+
+    <script type="module">
+        // Configuração do Firebase
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.2/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.2/firebase-auth.js";
+import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.7.2/firebase-firestore.js";
+
+// Configuração do Firebase
+const firebaseConfig = {
+        apiKey: "AIzaSyCj2xzFMXHZBQkymoNeTqDMkBmb0e4u0HU",
+         authDomain: "stellmods-6ebc6.firebaseapp.com",
+         projectId: "stellmods-6ebc6",
+         storageBucket: "stellmods-6ebc6.firebasestorage.app",
+         messagingSenderId: "430065844590",
+         appId: "1:430065844590:web:629fe2e9ccebee947e417f"
+ };
+
+// Inicializa Firebase
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const provider = new GoogleAuthProvider();
+const db = getFirestore(app);
+
+// Elementos do DOM
+const loginForm = document.getElementById("login-form");
+const arquivosLista = document.getElementById("arquivos-lista");
+
+// Ocultar login e mostrar arquivos após login
+onAuthStateChanged(auth, (user) => {
+    if (user) {
+        loginForm.classList.add("hidden");
+        carregarArquivos();
+    } else {
+        loginForm.classList.remove("hidden");
+        arquivosLista.innerHTML = ""; // Esconde os arquivos quando o usuário sai
+    }
+});
+
+// Login com Email e Senha
+document.getElementById("login-form").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
+
+    signInWithEmailAndPassword(auth, email, password)
+        .then(() => {
+            loginForm.classList.add("hidden");
+            carregarArquivos();
+        })
+        .catch((error) => {
+            alert("Erro ao fazer login: " + error.message);
+        });
+});
+
+// Login com Google
+document.getElementById("google-login-btn").addEventListener("click", () => {
+    signInWithPopup(auth, provider)
+        .then(() => {
+            loginForm.classList.add("hidden");
+            carregarArquivos();
+        })
+        .catch((error) => {
+            alert("Erro ao fazer login com Google: " + error.message);
+        });
+});
+
+// Carregar arquivos do Firestore
+function carregarArquivos() {
+    getDocs(collection(db, "arquivos")).then(snapshot => {
+        arquivosLista.innerHTML = "";
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            arquivosLista.innerHTML += `
+                <div class="arquivo">
+                    <h3>${data.nome}</h3>
+                    <p>${data.descricao}</p>
+                    <p><strong>Preço:</strong> ${data.preco} MT</p>
+                    <a href="${data.arquivo}" target="_blank">Baixar</a>
+                </div>
+            `;
+        });
+    });
+}
+
+        // Upload de Arquivo
+        uploadBtn.addEventListener("click", async () => {
+            const nome = document.getElementById("nome").value;
+            const descricao = document.getElementById("descricao").value;
+            const preco = document.getElementById("preco").value;
+
+            if (nome && descricao && preco) {
+                await addDoc(collection(db, "arquivos"), {
+                    nome,
+                    descricao,
+                    preco,
+                    timestamp: serverTimestamp()
+                });
+                alert("Arquivo enviado!");
+                carregarArquivos();
+            } else {
+                alert("Preencha todos os campos!");
+            }
+        });
+
+        carregarArquivos();
+    </script>
+
+</body>
+</html>
